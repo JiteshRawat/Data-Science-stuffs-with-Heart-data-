@@ -1,0 +1,240 @@
+---
+title: "Mini Project"
+author: "Jitesh Rawat"
+date: "3/9/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(lattice)
+library(car)
+library(caret)
+library(funModeling)
+library(corrplot)
+library(MASS)
+data= read.csv("D:/Jitesh/Documents/MiniProject/heart.csv")
+```
+
+```{r}
+dim(data)
+names(data)[1] <- "age"
+head(data)
+```
+
+```{r}
+summary(data)
+```
+```{r}
+#ggplot(data,aes(x= age,y= chol,col= factor(target)))+geom_point()
+plot_num(data)
+```
+```{r}
+res <- cor(data)
+round(res, 2)
+corrplot(cor(data),type= "upper")
+```
+
+```{r}
+#install.packages(grid,dependencies = TRUE)
+library(grid)
+library(gridExtra)
+```
+
+```{r}
+p1 <- ggplot(data= data,aes(x= target,y= age,colour= target)) + geom_point()
+p2 <- ggplot(data= data,aes(x= target,y= age))+ geom_boxplot()
+p3 <- ggplot(data= data,aes(x= target,y= age)) + geom_density2d()
+p4 <- ggplot(data= data,aes(age)) + geom_histogram()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+```{r}
+p1 <- ggplot(data = data, mapping = aes(x = chol, y = thalach)) + geom_boxplot()
+   
+p2 <- ggplot(data, aes(chol, thalach, colour= target)) + geom_point() + geom_smooth(method= lm)
+
+p3 <-  ggplot(data, aes(chol, thalach, colour = target)) + geom_density_2d()
+
+p4 <-ggplot(data=data,aes(chol))+ geom_histogram()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+
+```{r}
+p1 <- ggplot(data = data, mapping = aes(x = thalach, y = age)) + geom_boxplot()
+   
+p2 <- ggplot(data, aes(age, thalach, colour = target)) + geom_point() + geom_smooth(method= lm)
+
+p3 <-  ggplot(data, aes(age, thalach, colour = target)) + geom_density_2d_filled()
+
+p4 <-ggplot(data=data,aes(age))+ geom_histogram()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+
+```{r}
+p1 <- ggplot(data = data, mapping = aes(x = restecg, y = thalach)) + geom_boxplot()
+   
+p2 <- ggplot(data, aes(restecg, thalach, colour = target)) + geom_point() 
+
+p3 <-  ggplot(data, aes(restecg, thalach, colour = target)) + geom_density_2d()
+
+p4 <-ggplot(data=data,aes(restecg))+ geom_histogram()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+```{r}
+p1 <- ggplot(data = data, mapping = aes(x = slope, y = thalach)) + geom_boxplot()
+   
+p2 <- ggplot(data, aes(slope, thalach, colour = target)) + geom_point() 
+
+p3 <-  ggplot(data, aes(slope, thalach, colour = target)) + geom_density_2d()
+
+p4 <-ggplot(data=data,aes(slope))+ geom_histogram()
+grid.arrange(p1,p2,p3,p4,ncol=2)
+```
+
+
+```{r}
+#linear model
+model_trial <- lm(thalach~.,data= data)
+par(mfrow=c(2,2))
+plot(model_trial)
+summary(model_trial)
+```
+
+
+```{r}
+
+model1 <- lm(thalach~age+sex+cp+trestbps+chol+exang+slope+target,data=data)
+par(mfrow=c(2,2))
+plot(model1)
+summary(model1)
+```
+```{r}
+model2 <- lm(thalach~age+cp+trestbps+chol+exang+slope+target,data=data)
+summary(model2)
+par(mfrow=c(2,2))
+plot(model2)
+
+```
+
+```{r}
+shapiro.test(model2$residuals)
+stepModel <- stepAIC(model2,trace=TRUE )
+summary(stepModel)
+```
+
+```{r}
+library(MASS)
+bc <- boxcox(thalach~age+cp+trestbps+chol+exang+slope+target,data= data)
+lambda <- bc$x[which.max(bc$y)]
+lambda
+```
+```{r}
+data_new <- data
+data_new$y <- ((data_new$thalach)^lambda-1/lambda)
+model3 <- lm(y~age+cp+trestbps+chol+exang+slope+target,data=data_new)
+summary(model3)
+```
+```{r}
+shapiro.test(model3$residuals)
+#Still we can see that data is not normal 
+```
+```{r}
+#One Way ANOVA
+ggplot(data)+
+  aes(target,restecg,color=target)+
+  geom_jitter()+
+  theme(legend.position="none")
+
+res_aov <- aov(trestbps ~ as.factor(target),data=data)
+
+hist(res_aov$residuals)
+qqnorm(res_aov$residuals,xlab = "norm quantiles")
+```
+```{r}
+shapiro.test(res_aov$residuals)
+
+bc<-boxcox(trestbps ~ as.factor(restecg), data=data)
+lambda <- bc$x[which.max(bc$y)]
+data$y <- ((data$trestbps)^(lambda)-1)/lambda
+new_model <- aov(y~as.factor(restecg), data=data)
+shapiro.test(new_model$residuals)
+
+
+leveneTest(trestbps ~ as.factor(restecg), data=data)
+
+oneway.test(chol ~ as.factor(cp),
+            data = data,
+            var.equal = TRUE
+            )
+
+TH2 <- TukeyHSD(res_aov)
+plot(TH2)
+```
+```{r}
+#TWO WAY ANOVA
+
+anova_two_way <- aov(trestbps ~ as.factor(target)+as.factor(sex),data=data)
+shapiro.test(anova_two_way$residuals)
+```
+
+
+```{r}
+bc<-boxcox(trestbps ~ as.factor(target)+as.factor(sex), data=data)
+lambda <- bc$x[which.max(bc$y)]
+data$y <- ((data$trestbps)^(lambda)-1)/lambda
+New_model2 <- aov(y~as.factor(target)+as.factor(sex), data=data)
+shapiro.test(New_model2$residuals)
+summary(New_model2)
+```
+
+
+```{r}
+leveneTest(trestbps~as.factor(target)*as.factor(sex), data=data)
+```
+
+
+```{r}
+TH <- TukeyHSD(New_model2)
+plot(TH)
+```
+
+```{r}
+#Logistic Regression
+set.seed(42)
+index = sample(nrow(data), 250)
+train_d = data[index, ]
+test_d= data[-index,]
+dim(test_d) 
+```
+```{r}
+lg_model1 <- glm(target~oldpeak+ca+cp+thal+exang,data=train_d)
+summary(lg_model1)
+```
+
+```{r}
+pred = predict(lg_model1, type='response')
+model_pred = ifelse(pred>0.5, '1', '0')
+length(model_pred)
+```
+
+```{r}
+# Compute the accuracy
+acc <- mean(train_d$target==model_pred)
+acc
+```
+```{r}
+train_tab = table(Predicted=model_pred,actual=train_d$target)
+train_tab
+
+con_mat = confusionMatrix(train_tab, positive='1', threshold=0.25)
+con_mat
+```
+```
+
